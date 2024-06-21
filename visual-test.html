@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .node rect {
+            stroke: #333;
+            fill: #fff;
+        }
+        .node text {
+            font: 12px sans-serif;
+        }
+        .link {
+            fill: none;
+            stroke: #333;
+            stroke-width: 1.5px;
+        }
+    </style>
+</head>
+<body>
+    <svg width="960" height="500"></svg>
+
+    <script>
+        const data = {
+            nodes: [
+                {id: 1, label: "Initiator", description: "Any active faculty or staff can initiate"},
+                {id: 2, label: "Traveler", description: "Approves and certifies the eDoc"},
+                {id: 3, label: "Fiscal Officer", description: "Approves the eDoc"},
+                {id: 4, label: "Scanning Hold", description: "Waits for supporting docs to be scanned"},
+                {id: 5, label: "Accounting Reviewer", description: "Approves or receives an FYI for document (Optional)"}
+            ],
+            links: [
+                {source: 1, target: 2},
+                {source: 2, target: 3},
+                {source: 3, target: 4},
+                {source: 4, target: 5}
+            ]
+        };
+
+        const svg = d3.select("svg"),
+            width = +svg.attr("width"),
+            height = +svg.attr("height");
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force("link", d3.forceLink(data.links).id(d => d.id).distance(200))
+            .force("charge", d3.forceManyBody().strength(-1000))
+            .force("center", d3.forceCenter(width / 2, height / 2))
+            .force("x", d3.forceX(width / 2).strength(0.1))
+            .force("y", d3.forceY(height / 2).strength(0.1));
+
+        const link = svg.append("g")
+            .selectAll("line")
+            .data(data.links)
+            .enter().append("line")
+            .attr("class", "link");
+
+        const node = svg.append("g")
+            .selectAll(".node")
+            .data(data.nodes)
+            .enter().append("g")
+            .attr("class", "node")
+            .call(d3.drag()
+                .on("start", dragstarted)
+                .on("drag", dragged)
+                .on("end", dragended));
+
+        node.append("rect")
+            .attr("width", 150)
+            .attr("height", 60)
+            .attr("rx", d => d.id === 5 ? 15 : 0)
+            .attr("ry", d => d.id === 5 ? 15 : 0)
+            .attr("fill", d => d.id === 5 ? "#f0f0f0" : "#fff");
+
+        node.append("text")
+            .attr("x", 75)
+            .attr("y", 20)
+            .attr("text-anchor", "middle")
+            .text(d => d.label);
+
+        node.append("text")
+            .attr("x", 75)
+            .attr("y", 40)
+            .attr("text-anchor", "middle")
+            .attr("font-size", "10px")
+            .text(d => d.description)
+            .call(wrap, 140);
+
+        simulation.on("tick", () => {
+            link
+                .attr("x1", d => d.source.x)
+                .attr("y1", d => d.source.y)
+                .attr("x2", d => d.target.x)
+                .attr("y2", d => d.target.y);
+
+            node
+                .attr("transform", d => `translate(${d.x - 75},${d.y - 30})`);
+        });
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function wrap(text, width) {
+            text.each(function() {
+                var text = d3.select(this),
+                    words = text.text().split(/\s+/).reverse(),
+                    word,
+                    line = [],
+                    lineNumber = 0,
+                    lineHeight = 1.1,
+                    y = text.attr("y"),
+                    dy = parseFloat(text.attr("dy") || 0),
+                    tspan = text.text(null).append("tspan").attr("x", 75).attr("y", y).attr("dy", dy + "em");
+                while (word = words.pop()) {
+                    line.push(word);
+                    tspan.text(line.join(" "));
+                    if (tspan.node().getComputedTextLength() > width) {
+                        line.pop();
+                        tspan.text(line.join(" "));
+                        line = [word];
+                        tspan = text.append("tspan").attr("x", 75).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
